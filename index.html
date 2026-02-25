@@ -66,15 +66,20 @@
         }
 
         .splash-icon {
-            font-size: 80px;
             margin-bottom: 20px;
             animation: pulse-bike 2s ease-in-out infinite;
         }
 
+        .splash-icon img {
+            width: 160px;
+            height: auto;
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 130, 255, 0.3);
+        }
+
         @keyframes pulse-bike {
-            0%, 100% { transform: scale(1) translateX(0); }
-            25% { transform: scale(1.05) translateX(5px); }
-            75% { transform: scale(1.05) translateX(-5px); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
 
         .splash-title {
@@ -622,7 +627,7 @@
 
     <!-- ========= TELA INICIAL ========= -->
     <div id="splash-screen">
-        <div class="splash-icon">🚴</div>
+        <div class="splash-icon"><img src="logo.png" alt="Pedalada dos Estados"></div>
         <div class="splash-title">PEDALADA<br>DOS ESTADOS</div>
         <div class="splash-subtitle">Conecte-se &bull; Pedale &bull; Compartilhe</div>
         <button class="splash-btn" onclick="enterApp()">ENTRAR</button>
@@ -630,7 +635,7 @@
 
     <!-- ========= HEADER ========= -->
     <header id="app-header" style="display:none;">
-        <div class="header-logo">🚴 PEDALADA</div>
+        <div class="header-logo"><img src="logo.png" alt="Logo" style="height:32px;border-radius:6px;vertical-align:middle;margin-right:6px;">PEDALADA</div>
         <div class="header-status">
             <span id="status-text">Aguardando</span>
             <div class="status-dot" id="status-dot"></div>
