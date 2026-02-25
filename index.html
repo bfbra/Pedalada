@@ -8,25 +8,23 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- PeerJS para compartilhamento P2P -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- PWA / Manifest inline -->
+    <!-- Firebase SDK (compat para funcionar em HTML puro) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+    <!-- PWA -->
     <meta name="theme-color" content="#0d1b2a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="logo.png">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap');
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
             --bg-dark: #0d1b2a;
@@ -34,7 +32,6 @@
             --accent: #00e676;
             --accent-glow: rgba(0, 230, 118, 0.3);
             --danger: #ff5252;
-            --warning: #ffab40;
             --text: #e0e0e0;
             --text-muted: #78909c;
         }
@@ -117,35 +114,26 @@
             text-transform: uppercase;
         }
 
-        .splash-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 50px var(--accent-glow);
-        }
-
-        .splash-btn:active {
-            transform: scale(0.97);
-        }
+        .splash-btn:active { transform: scale(0.97); }
 
         /* ========= HEADER ========= */
         #app-header {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 56px;
             background: rgba(13, 27, 42, 0.95);
             backdrop-filter: blur(10px);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 16px;
+            padding: 0 12px;
             z-index: 1000;
             border-bottom: 1px solid rgba(0,230,118,0.15);
         }
 
         .header-logo {
             font-family: 'Orbitron', sans-serif;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             color: var(--accent);
             letter-spacing: 1px;
@@ -158,7 +146,6 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-left: auto;
         }
 
         .header-apoio span {
@@ -176,14 +163,13 @@
         .header-status {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 12px;
+            gap: 6px;
+            font-size: 11px;
             color: var(--text-muted);
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 8px; height: 8px;
             border-radius: 50%;
             background: var(--text-muted);
         }
@@ -202,34 +188,23 @@
         /* ========= MAPA ========= */
         #map-container {
             position: fixed;
-            top: 56px;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 56px; left: 0; right: 0; bottom: 0;
             z-index: 1;
         }
 
-        #map {
-            width: 100%;
-            height: 100%;
-        }
+        #map { width: 100%; height: 100%; }
 
         /* ========= PAINEL DE CONTROLE ========= */
         #control-panel {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             z-index: 500;
             padding: 0 12px 20px;
             pointer-events: none;
         }
 
-        #control-panel > * {
-            pointer-events: auto;
-        }
+        #control-panel > * { pointer-events: auto; }
 
-        /* Stats Bar */
         .stats-bar {
             display: none;
             grid-template-columns: repeat(4, 1fr);
@@ -237,9 +212,7 @@
             margin-bottom: 12px;
         }
 
-        .stats-bar.visible {
-            display: grid;
-        }
+        .stats-bar.visible { display: grid; }
 
         .stat-card {
             background: rgba(27, 40, 56, 0.92);
@@ -265,7 +238,6 @@
             margin-top: 2px;
         }
 
-        /* Botões de ação */
         .action-row {
             display: flex;
             gap: 10px;
@@ -300,15 +272,12 @@
             box-shadow: 0 4px 25px rgba(255,82,82,0.3);
         }
 
-        .btn-pedal:active {
-            transform: scale(0.96);
-        }
+        .btn-pedal:active { transform: scale(0.96); }
 
         .btn-circle {
-            width: 56px;
-            height: 56px;
+            width: 56px; height: 56px;
             border-radius: 50%;
-            border: none;
+            border: 1px solid rgba(255,255,255,0.1);
             background: rgba(27, 40, 56, 0.92);
             backdrop-filter: blur(10px);
             color: var(--text);
@@ -317,7 +286,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.3s ease;
         }
 
@@ -326,194 +294,15 @@
             background: rgba(0,230,118,0.2);
         }
 
-        /* ========= MODAL COMPARTILHAR ========= */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(5px);
-            z-index: 2000;
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-        }
-
-        .modal-overlay.visible {
-            display: flex;
-        }
-
-        .modal-sheet {
-            background: var(--bg-card);
-            border-radius: 24px 24px 0 0;
-            padding: 24px 20px 36px;
-            width: 100%;
-            max-width: 480px;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .modal-handle {
-            width: 40px;
-            height: 4px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 2px;
-            margin: 0 auto 20px;
-        }
-
-        .modal-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 6px;
-        }
-
-        .modal-desc {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 20px;
-        }
-
-        .share-code-box {
-            background: rgba(0,230,118,0.08);
-            border: 2px dashed rgba(0,230,118,0.3);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .share-code {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 32px;
-            font-weight: 900;
-            color: var(--accent);
-            letter-spacing: 6px;
-            word-break: break-all;
-        }
-
-        .share-code-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 8px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .share-actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .share-btn {
-            flex: 1;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .share-btn.copy {
-            background: var(--accent);
-            color: #0d1b2a;
-        }
-
-        .share-btn.native {
-            background: rgba(255,255,255,0.1);
-            color: var(--text);
-        }
-
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 20px 0;
-            color: var(--text-muted);
-            font-size: 12px;
-        }
-
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: rgba(255,255,255,0.1);
-        }
-
-        .join-section input {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: 2px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.3);
-            color: var(--text);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
-            text-align: center;
-            letter-spacing: 4px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        .join-section input:focus {
-            border-color: var(--accent);
-        }
-
-        .join-section input::placeholder {
-            color: var(--text-muted);
-            font-size: 13px;
-            letter-spacing: 1px;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .join-btn {
-            width: 100%;
-            margin-top: 12px;
-            padding: 14px;
-            border-radius: 12px;
-            border: 2px solid var(--accent);
-            background: transparent;
-            color: var(--accent);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-        }
-
-        .join-btn:hover {
-            background: rgba(0,230,118,0.1);
-        }
-
-        .modal-close {
-            width: 100%;
-            margin-top: 16px;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            background: rgba(255,255,255,0.05);
-            color: var(--text-muted);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        /* ========= LISTA DE CICLISTAS CONECTADOS ========= */
+        /* ========= PAINEL CICLISTAS ========= */
         .riders-panel {
             position: fixed;
-            top: 64px;
-            right: 12px;
+            top: 64px; right: 12px;
             z-index: 500;
             display: none;
         }
 
-        .riders-panel.visible {
-            display: block;
-        }
+        .riders-panel.visible { display: block; }
 
         .riders-card {
             background: rgba(27, 40, 56, 0.92);
@@ -541,16 +330,14 @@
         }
 
         .rider-color {
-            width: 10px;
-            height: 10px;
+            width: 10px; height: 10px;
             border-radius: 50%;
         }
 
-        /* ========= TOAST NOTIFICATIONS ========= */
+        /* ========= TOAST ========= */
         .toast {
             position: fixed;
-            top: 70px;
-            left: 50%;
+            top: 70px; left: 50%;
             transform: translateX(-50%) translateY(-20px);
             background: rgba(27, 40, 56, 0.95);
             backdrop-filter: blur(10px);
@@ -565,6 +352,7 @@
             border: 1px solid rgba(0,230,118,0.2);
             pointer-events: none;
             text-align: center;
+            max-width: 90%;
         }
 
         .toast.show {
@@ -572,10 +360,9 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        /* ========= LOADING OVERLAY ========= */
+        /* ========= LOADING ========= */
         .loading {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0;
             background: rgba(0,0,0,0.6);
             display: none;
             align-items: center;
@@ -583,39 +370,23 @@
             z-index: 5000;
         }
 
-        .loading.visible {
-            display: flex;
-        }
+        .loading.visible { display: flex; }
 
         .spinner {
-            width: 48px;
-            height: 48px;
+            width: 48px; height: 48px;
             border: 4px solid rgba(0,230,118,0.2);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ========= RESPONSIVE ========= */
-        @media (min-width: 600px) {
-            .stat-card { padding: 14px 12px; }
-            .stat-value { font-size: 22px; }
-            .splash-title { font-size: 36px; }
-        }
-
-        /* Leaflet custom marker */
-        .cyclist-marker {
-            background: none;
-            border: none;
-        }
+        /* ========= MARCADORES ========= */
+        .cyclist-marker { background: none; border: none; }
 
         .marker-dot {
-            width: 20px;
-            height: 20px;
+            width: 20px; height: 20px;
             background: var(--accent);
             border-radius: 50%;
             border: 3px solid white;
@@ -643,11 +414,95 @@
             0% { transform: scale(1); opacity: 0.4; }
             100% { transform: scale(2); opacity: 0; }
         }
+
+        .marker-label {
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.75);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ========= MODAL NOME ========= */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.visible { display: flex; }
+
+        .modal-box {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 30px 24px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+        }
+
+        .modal-box h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .modal-box p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.3);
+            color: var(--text);
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+            margin-bottom: 16px;
+        }
+
+        .modal-box input:focus { border-color: var(--accent); }
+
+        .modal-box button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent), #00c853);
+            color: #0d1b2a;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 1px;
+        }
+
+        @media (min-width: 600px) {
+            .stat-value { font-size: 22px; }
+            .splash-title { font-size: 36px; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- ========= TELA INICIAL ========= -->
+    <!-- TELA INICIAL -->
     <div id="splash-screen">
         <div class="splash-icon"><img src="logo.png" alt="Pedalada dos Estados"></div>
         <div class="splash-title">PEDALADA<br>DOS ESTADOS</div>
@@ -655,9 +510,12 @@
         <button class="splash-btn" onclick="enterApp()">ENTRAR</button>
     </div>
 
-    <!-- ========= HEADER ========= -->
+    <!-- HEADER -->
     <header id="app-header" style="display:none;">
-        <div class="header-logo"><img src="logo.png" alt="Logo" style="height:32px;border-radius:6px;">PEDALADA DOS ESTADOS</div>
+        <div class="header-logo">
+            <img src="logo.png" alt="Logo" style="height:32px;border-radius:6px;">
+            PEDALADA DOS ESTADOS
+        </div>
         <div class="header-apoio">
             <span>Apoio</span>
             <img src="apoio.png" alt="CONSEG e Lions Club">
@@ -668,20 +526,20 @@
         </div>
     </header>
 
-    <!-- ========= MAPA ========= -->
+    <!-- MAPA -->
     <div id="map-container" style="display:none;">
         <div id="map"></div>
     </div>
 
-    <!-- ========= PAINEL DE CICLISTAS ========= -->
+    <!-- PAINEL CICLISTAS -->
     <div class="riders-panel" id="riders-panel">
         <div class="riders-card">
-            <div class="riders-title">🚴 Ciclistas Conectados</div>
+            <div class="riders-title">🚴 Ciclistas Pedalando</div>
             <div id="riders-list"></div>
         </div>
     </div>
 
-    <!-- ========= CONTROLES ========= -->
+    <!-- CONTROLES -->
     <div id="control-panel" style="display:none;">
         <div class="stats-bar" id="stats-bar">
             <div class="stat-card">
@@ -701,651 +559,492 @@
                 <div class="stat-label">Média</div>
             </div>
         </div>
-
         <div class="action-row">
             <button class="btn-circle" onclick="centerMap()" title="Centralizar">📍</button>
-            <button class="btn-pedal start" id="btn-pedal" onclick="togglePedal()">
-                MODO PEDAL
-            </button>
-            <button class="btn-circle" onclick="openShareModal()" title="Compartilhar">📡</button>
+            <button class="btn-pedal start" id="btn-pedal" onclick="togglePedal()">MODO PEDAL</button>
+            <button class="btn-circle" onclick="shareApp()" title="Compartilhar">📤</button>
         </div>
     </div>
 
-    <!-- ========= MODAL COMPARTILHAR ========= -->
-    <div class="modal-overlay" id="share-modal">
-        <div class="modal-sheet">
-            <div class="modal-handle"></div>
-            <div class="modal-title">Compartilhar Rota</div>
-            <div class="modal-desc">Compartilhe seu código com outros ciclistas para que vejam sua rota em tempo real.</div>
-
-            <div class="share-code-box">
-                <div class="share-code" id="my-code">------</div>
-                <div class="share-code-label">Seu código de rota</div>
-            </div>
-
-            <div class="share-actions">
-                <button class="share-btn copy" onclick="copyCode()">📋 Copiar Código</button>
-                <button class="share-btn native" onclick="nativeShare()">📤 Compartilhar</button>
-            </div>
-
-            <div class="divider">ou acompanhe um ciclista</div>
-
-            <div class="join-section">
-                <input type="text" id="join-code-input" placeholder="Digite o código do ciclista"
-                       maxlength="8" autocomplete="off" spellcheck="false">
-                <button class="join-btn" onclick="joinRider()">🔗 CONECTAR</button>
-            </div>
-
-            <button class="modal-close" onclick="closeShareModal()">Fechar</button>
+    <!-- MODAL: NOME DO CICLISTA -->
+    <div class="modal-overlay" id="name-modal">
+        <div class="modal-box">
+            <h2>Qual seu nome?</h2>
+            <p>Os outros ciclistas verão seu nome no mapa.</p>
+            <input type="text" id="rider-name-input" placeholder="Ex: Bernardo" maxlength="20" autocomplete="off">
+            <button onclick="confirmName()">CONFIRMAR</button>
         </div>
     </div>
 
-    <!-- ========= TOAST ========= -->
+    <!-- TOAST -->
     <div class="toast" id="toast"></div>
 
-    <!-- ========= LOADING ========= -->
+    <!-- LOADING -->
     <div class="loading" id="loading">
         <div class="spinner"></div>
     </div>
 
     <script>
-        // ============================================================
-        //  PEDALADA DOS ESTADOS - App Principal
-        // ============================================================
+    // ============================================================
+    //  PEDALADA DOS ESTADOS - Firebase Realtime
+    // ============================================================
 
-        // --- Estado Global ---
-        const state = {
-            isPedaling: false,
-            watchId: null,
-            wakeLock: null,
-            startTime: null,
-            totalDistance: 0,
-            positions: [],
-            currentPos: null,
-            timerInterval: null,
-            peer: null,
-            peerId: null,
-            connections: [],       // conexões ativas
-            connectedRiders: {},   // { peerId: { name, positions, marker, polyline, color } }
-            broadcastInterval: null,
-        };
+    // --- Firebase Config ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_phbk12IKHTre5tB4RX1geEycl9KOd4c",
+        authDomain: "pedalada-dos-estados.firebaseapp.com",
+        databaseURL: "https://pedalada-dos-estados-default-rtdb.firebaseio.com",
+        projectId: "pedalada-dos-estados",
+        storageBucket: "pedalada-dos-estados.firebasestorage.app",
+        messagingSenderId: "301069771008",
+        appId: "1:301069771008:web:0e9732dbb9b4a4eb65d3e5",
+        measurementId: "G-TSWFYE47D0"
+    };
 
-        const RIDER_COLORS = ['#42a5f5', '#ff7043', '#ab47bc', '#ffca28', '#26c6da', '#ec407a'];
-        let colorIndex = 0;
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-        let map, myMarker, myPolyline;
+    // --- Estado Global ---
+    const state = {
+        isPedaling: false,
+        watchId: null,
+        wakeLock: null,
+        startTime: null,
+        totalDistance: 0,
+        positions: [],
+        currentPos: null,
+        timerInterval: null,
+        riderId: null,
+        riderName: '',
+        otherRiders: {},  // { riderId: { name, marker, polyline, color, positions } }
+    };
 
-        // --- Entrar no App ---
-        function enterApp() {
-            document.getElementById('splash-screen').classList.add('hidden');
-            setTimeout(() => {
-                document.getElementById('splash-screen').style.display = 'none';
-                document.getElementById('app-header').style.display = 'flex';
-                document.getElementById('map-container').style.display = 'block';
-                document.getElementById('control-panel').style.display = 'block';
-                initMap();
-                initPeer();
-            }, 600);
+    const RIDER_COLORS = ['#42a5f5','#ff7043','#ab47bc','#ffca28','#26c6da','#ec407a','#66bb6a','#ef5350'];
+    let colorIndex = 0;
+    let map, myMarker, myPolyline;
+
+    // Gerar ID único para este ciclista
+    state.riderId = 'rider_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+    // --- Entrar no App ---
+    function enterApp() {
+        document.getElementById('splash-screen').classList.add('hidden');
+        setTimeout(() => {
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('app-header').style.display = 'flex';
+            document.getElementById('map-container').style.display = 'block';
+            document.getElementById('control-panel').style.display = 'block';
+            initMap();
+            listenForRiders();
+        }, 600);
+    }
+
+    // --- Mapa ---
+    function initMap() {
+        map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false,
+        }).setView([-14.235, -51.925], 5);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    map.setView([latitude, longitude], 15);
+                    state.currentPos = [latitude, longitude];
+                },
+                () => showToast('Permita acesso à localização'),
+                { enableHighAccuracy: true }
+            );
         }
+    }
 
-        // --- Inicializar Mapa ---
-        function initMap() {
-            map = L.map('map', {
-                zoomControl: false,
-                attributionControl: false,
-            }).setView([-14.235, -51.925], 5);
+    // ============================================================
+    //  FIREBASE: Escutar ciclistas em tempo real
+    // ============================================================
+    function listenForRiders() {
+        const ridersRef = db.ref('riders');
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-            }).addTo(map);
+        // Quando um ciclista é adicionado ou atualizado
+        ridersRef.on('child_added', (snap) => handleRiderUpdate(snap));
+        ridersRef.on('child_changed', (snap) => handleRiderUpdate(snap));
 
-            // Tentar pegar localização atual
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        map.setView([latitude, longitude], 15);
-                        state.currentPos = [latitude, longitude];
-                    },
-                    () => {
-                        showToast('Permita acesso à localização para melhor experiência');
-                    },
-                    { enableHighAccuracy: true }
-                );
-            }
-        }
+        // Quando um ciclista sai
+        ridersRef.on('child_removed', (snap) => {
+            const id = snap.key;
+            if (id === state.riderId) return;
+            removeRider(id);
+        });
+    }
 
-        // --- Inicializar PeerJS ---
-        function initPeer() {
-            const id = generateCode();
-            state.peer = new Peer(id, {
-                debug: 0,
-            });
+    function handleRiderUpdate(snap) {
+        const id = snap.key;
+        if (id === state.riderId) return; // Ignorar a si mesmo
 
-            state.peer.on('open', (peerId) => {
-                state.peerId = peerId;
-                document.getElementById('my-code').textContent = peerId.toUpperCase();
-            });
+        const data = snap.val();
+        if (!data || !data.positions || data.positions.length === 0) return;
 
-            state.peer.on('connection', (conn) => {
-                handleIncomingConnection(conn);
-            });
+        const positions = data.positions;
+        const lastPos = positions[positions.length - 1];
 
-            state.peer.on('error', (err) => {
-                console.warn('PeerJS error:', err.type);
-                if (err.type === 'unavailable-id') {
-                    // Tentar outro ID
-                    state.peer.destroy();
-                    setTimeout(initPeer, 500);
-                }
-            });
-        }
-
-        function generateCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = 'PDE-';
-            for (let i = 0; i < 4; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return code.toLowerCase();
-        }
-
-        // --- Lidar com conexão entrante (alguém quer ver minha rota) ---
-        function handleIncomingConnection(conn) {
-            conn.on('open', () => {
-                state.connections.push(conn);
-                showToast('🚴 Um ciclista está acompanhando sua rota!');
-
-                // Enviar posições acumuladas
-                if (state.positions.length > 0) {
-                    conn.send({
-                        type: 'full-route',
-                        positions: state.positions,
-                        name: 'Ciclista ' + state.peerId.slice(-4).toUpperCase(),
-                        isPedaling: state.isPedaling,
-                    });
-                }
-            });
-
-            conn.on('data', (data) => {
-                handlePeerData(conn.peer, data);
-            });
-
-            conn.on('close', () => {
-                state.connections = state.connections.filter(c => c !== conn);
-                removeRider(conn.peer);
-            });
-        }
-
-        // --- Conectar a outro ciclista ---
-        function joinRider() {
-            const input = document.getElementById('join-code-input');
-            let code = input.value.trim().toLowerCase();
-            if (!code) {
-                showToast('Digite um código válido');
-                return;
-            }
-
-            // Normalizar código
-            if (!code.startsWith('pde-')) code = 'pde-' + code;
-
-            showLoading(true);
-
-            const conn = state.peer.connect(code, { reliable: true });
-
-            conn.on('open', () => {
-                showLoading(false);
-                state.connections.push(conn);
-                showToast('🔗 Conectado! Acompanhando ciclista...');
-                closeShareModal();
-
-                // Enviar nossas posições se estiver pedalando
-                if (state.isPedaling && state.positions.length > 0) {
-                    conn.send({
-                        type: 'full-route',
-                        positions: state.positions,
-                        name: 'Ciclista ' + state.peerId.slice(-4).toUpperCase(),
-                        isPedaling: state.isPedaling,
-                    });
-                }
-            });
-
-            conn.on('data', (data) => {
-                handlePeerData(conn.peer, data);
-            });
-
-            conn.on('close', () => {
-                state.connections = state.connections.filter(c => c !== conn);
-                removeRider(conn.peer);
-                showToast('Ciclista desconectado');
-            });
-
-            conn.on('error', () => {
-                showLoading(false);
-                showToast('Não foi possível conectar. Verifique o código.');
-            });
-
-            setTimeout(() => {
-                if (!conn.open) {
-                    showLoading(false);
-                    showToast('Tempo esgotado. Verifique o código.');
-                }
-            }, 10000);
-        }
-
-        // --- Processar dados do peer ---
-        function handlePeerData(peerId, data) {
-            if (data.type === 'position') {
-                updateRiderPosition(peerId, data);
-            } else if (data.type === 'full-route') {
-                initRider(peerId, data);
-            } else if (data.type === 'stop') {
-                removeRider(peerId);
-                showToast('Ciclista ' + (data.name || '') + ' parou de pedalar');
-            }
-        }
-
-        function initRider(peerId, data) {
+        if (!state.otherRiders[id]) {
+            // Novo ciclista — criar marcador e rota
             const color = RIDER_COLORS[colorIndex++ % RIDER_COLORS.length];
-            const name = data.name || 'Ciclista';
+            const latlngs = positions.map(p => [p.lat, p.lng]);
 
-            if (state.connectedRiders[peerId]) {
-                // Atualizar
-                const rider = state.connectedRiders[peerId];
-                const latlngs = data.positions.map(p => [p.lat, p.lng]);
-                rider.polyline.setLatLngs(latlngs);
-                if (latlngs.length > 0) {
-                    rider.marker.setLatLng(latlngs[latlngs.length - 1]);
-                }
-                return;
-            }
-
-            const latlngs = data.positions.map(p => [p.lat, p.lng]);
             const polyline = L.polyline(latlngs, {
                 color: color,
                 weight: 4,
                 opacity: 0.8,
             }).addTo(map);
 
-            const lastPos = latlngs.length > 0 ? latlngs[latlngs.length - 1] : [-14.235, -51.925];
-            const marker = L.marker(lastPos, {
+            const marker = L.marker([lastPos.lat, lastPos.lng], {
                 icon: L.divIcon({
                     className: 'cyclist-marker',
-                    html: `<div class="marker-dot other" style="background:${color};"></div>`,
+                    html: `<div class="marker-dot other" style="background:${color};">
+                               <div class="marker-label">${data.name || 'Ciclista'}</div>
+                           </div>`,
                     iconSize: [20, 20],
                     iconAnchor: [10, 10],
                 }),
             }).addTo(map);
 
-            state.connectedRiders[peerId] = {
-                name, positions: data.positions, marker, polyline, color,
+            state.otherRiders[id] = {
+                name: data.name || 'Ciclista',
+                marker, polyline, color, positions,
             };
 
+            showToast('🚴 ' + (data.name || 'Ciclista') + ' entrou na pedalada!');
+        } else {
+            // Atualizar ciclista existente
+            const rider = state.otherRiders[id];
+            const latlngs = positions.map(p => [p.lat, p.lng]);
+            rider.polyline.setLatLngs(latlngs);
+            rider.marker.setLatLng([lastPos.lat, lastPos.lng]);
+            rider.positions = positions;
+        }
+
+        updateRidersPanel();
+    }
+
+    function removeRider(id) {
+        const rider = state.otherRiders[id];
+        if (rider) {
+            showToast(rider.name + ' saiu da pedalada');
+            map.removeLayer(rider.marker);
+            map.removeLayer(rider.polyline);
+            delete state.otherRiders[id];
             updateRidersPanel();
         }
+    }
 
-        function updateRiderPosition(peerId, data) {
-            if (!state.connectedRiders[peerId]) {
-                initRider(peerId, {
-                    positions: [{ lat: data.lat, lng: data.lng }],
-                    name: data.name,
-                });
-                return;
-            }
+    function updateRidersPanel() {
+        const panel = document.getElementById('riders-panel');
+        const list = document.getElementById('riders-list');
+        const ids = Object.keys(state.otherRiders);
 
-            const rider = state.connectedRiders[peerId];
-            rider.positions.push({ lat: data.lat, lng: data.lng });
-            rider.polyline.addLatLng([data.lat, data.lng]);
-            rider.marker.setLatLng([data.lat, data.lng]);
+        const totalRiders = ids.length + (state.isPedaling ? 1 : 0);
+
+        if (totalRiders === 0) {
+            panel.classList.remove('visible');
+            return;
         }
 
-        function removeRider(peerId) {
-            const rider = state.connectedRiders[peerId];
-            if (rider) {
-                map.removeLayer(rider.marker);
-                map.removeLayer(rider.polyline);
-                delete state.connectedRiders[peerId];
-                updateRidersPanel();
-            }
+        panel.classList.add('visible');
+        let html = '';
+
+        if (state.isPedaling) {
+            html += `<div class="rider-item">
+                <div class="rider-color" style="background:#00e676"></div>
+                <span>${state.riderName || 'Você'} (você)</span>
+            </div>`;
         }
 
-        function updateRidersPanel() {
-            const panel = document.getElementById('riders-panel');
-            const list = document.getElementById('riders-list');
-            const riderIds = Object.keys(state.connectedRiders);
+        html += ids.map(id => {
+            const r = state.otherRiders[id];
+            return `<div class="rider-item">
+                <div class="rider-color" style="background:${r.color}"></div>
+                <span>${r.name}</span>
+            </div>`;
+        }).join('');
 
-            if (riderIds.length === 0) {
-                panel.classList.remove('visible');
-                return;
-            }
+        list.innerHTML = html;
+    }
 
-            panel.classList.add('visible');
-            list.innerHTML = riderIds.map(id => {
-                const r = state.connectedRiders[id];
-                return `<div class="rider-item">
-                    <div class="rider-color" style="background:${r.color}"></div>
-                    <span>${r.name}</span>
-                </div>`;
-            }).join('');
+    // ============================================================
+    //  FIREBASE: Publicar minha posição
+    // ============================================================
+    function publishPosition(lat, lng) {
+        state.positions.push({ lat, lng, time: Date.now() });
+
+        db.ref('riders/' + state.riderId).set({
+            name: state.riderName,
+            positions: state.positions,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        });
+    }
+
+    function removeMyself() {
+        db.ref('riders/' + state.riderId).remove();
+    }
+
+    // ============================================================
+    //  MODO PEDAL
+    // ============================================================
+    function togglePedal() {
+        if (state.isPedaling) {
+            stopPedal();
+        } else {
+            // Pedir nome antes de começar
+            document.getElementById('name-modal').classList.add('visible');
+            document.getElementById('rider-name-input').focus();
+        }
+    }
+
+    function confirmName() {
+        const input = document.getElementById('rider-name-input');
+        state.riderName = input.value.trim() || 'Ciclista';
+        document.getElementById('name-modal').classList.remove('visible');
+        startPedal();
+    }
+
+    // Enter no campo de nome
+    document.getElementById('rider-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmName();
+    });
+
+    async function startPedal() {
+        if (!navigator.geolocation) {
+            showToast('Geolocalização não suportada');
+            return;
         }
 
-        // --- Broadcast posição para todos os peers ---
-        function broadcastPosition(lat, lng) {
-            const data = {
-                type: 'position',
-                lat, lng,
-                name: 'Ciclista ' + (state.peerId || '').slice(-4).toUpperCase(),
-                timestamp: Date.now(),
-            };
-            state.connections.forEach(conn => {
-                if (conn.open) conn.send(data);
-            });
+        showLoading(true);
+
+        // Wake Lock
+        try { await requestWakeLock(); } catch (e) {}
+
+        // Reset
+        state.positions = [];
+        state.totalDistance = 0;
+        state.startTime = Date.now();
+
+        // Configurar limpeza automática ao desconectar
+        db.ref('riders/' + state.riderId).onDisconnect().remove();
+
+        // GPS
+        state.watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude, speed, accuracy } = pos.coords;
+                if (accuracy > 100) return;
+
+                const newPos = [latitude, longitude];
+
+                // Distância
+                if (state.positions.length > 0) {
+                    const last = state.positions[state.positions.length - 1];
+                    const dist = haversine(last.lat, last.lng, latitude, longitude);
+                    if (dist < 0.003) return; // Filtrar GPS noise (< 3m)
+                    state.totalDistance += dist;
+                }
+
+                state.currentPos = newPos;
+                updateMyPosition(newPos);
+
+                // Stats
+                const speedKmh = speed ? (speed * 3.6) : 0;
+                document.getElementById('stat-speed').textContent = speedKmh.toFixed(1);
+                document.getElementById('stat-distance').textContent = state.totalDistance.toFixed(2);
+
+                if (state.startTime) {
+                    const hrs = (Date.now() - state.startTime) / 3600000;
+                    const avg = hrs > 0 ? (state.totalDistance / hrs) : 0;
+                    document.getElementById('stat-avg').textContent = avg.toFixed(1);
+                }
+
+                // Publicar no Firebase
+                publishPosition(latitude, longitude);
+
+                showLoading(false);
+            },
+            (err) => {
+                showLoading(false);
+                showToast('Erro GPS: ' + err.message);
+            },
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+        );
+
+        state.isPedaling = true;
+        state.timerInterval = setInterval(updateTimer, 1000);
+
+        // UI
+        const btn = document.getElementById('btn-pedal');
+        btn.textContent = 'PARAR PEDAL';
+        btn.className = 'btn-pedal stop';
+        document.getElementById('stats-bar').classList.add('visible');
+        document.getElementById('status-text').textContent = 'Pedalando';
+        document.getElementById('status-dot').classList.add('active');
+
+        updateRidersPanel();
+        showToast('🚴 Modo Pedal Ativado! Todos podem te ver no mapa!');
+    }
+
+    function stopPedal() {
+        if (state.watchId !== null) {
+            navigator.geolocation.clearWatch(state.watchId);
+            state.watchId = null;
         }
 
-        function broadcastStop() {
-            const data = {
-                type: 'stop',
-                name: 'Ciclista ' + (state.peerId || '').slice(-4).toUpperCase(),
-            };
-            state.connections.forEach(conn => {
-                if (conn.open) conn.send(data);
-            });
+        releaseWakeLock();
+
+        if (state.timerInterval) {
+            clearInterval(state.timerInterval);
+            state.timerInterval = null;
         }
 
-        // ============================================================
-        //  MODO PEDAL
-        // ============================================================
-        async function togglePedal() {
-            if (state.isPedaling) {
-                stopPedal();
-            } else {
-                startPedal();
-            }
+        state.isPedaling = false;
+
+        // Remover do Firebase
+        removeMyself();
+
+        // UI
+        const btn = document.getElementById('btn-pedal');
+        btn.textContent = 'MODO PEDAL';
+        btn.className = 'btn-pedal start';
+        document.getElementById('status-text').textContent = 'Finalizado';
+        document.getElementById('status-dot').classList.remove('active');
+
+        updateRidersPanel();
+        showToast('Pedalada finalizada! ' + state.totalDistance.toFixed(2) + ' km percorridos');
+    }
+
+    // --- Atualizar posição no mapa ---
+    function updateMyPosition(latlng) {
+        if (!myMarker) {
+            myMarker = L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'cyclist-marker',
+                    html: `<div class="marker-dot">
+                               <div class="marker-label">${state.riderName} (você)</div>
+                           </div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10],
+                }),
+            }).addTo(map);
+
+            myPolyline = L.polyline([], {
+                color: '#00e676',
+                weight: 4,
+                opacity: 0.9,
+                lineCap: 'round',
+                lineJoin: 'round',
+            }).addTo(map);
         }
 
-        async function startPedal() {
-            if (!navigator.geolocation) {
-                showToast('Geolocalização não suportada neste navegador');
-                return;
-            }
+        myMarker.setLatLng(latlng);
+        myPolyline.addLatLng(latlng);
+        map.panTo(latlng, { animate: true, duration: 0.5 });
+    }
 
-            showLoading(true);
-
+    // --- Wake Lock ---
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
             try {
-                // Solicitar Wake Lock para manter tela ativa
-                await requestWakeLock();
-            } catch (e) {
-                console.warn('Wake Lock não disponível:', e);
-            }
-
-            // Iniciar rastreamento GPS
-            state.watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    const { latitude, longitude, speed, accuracy } = pos.coords;
-
-                    // Ignorar posições com precisão muito ruim
-                    if (accuracy > 100) return;
-
-                    const newPos = [latitude, longitude];
-
-                    // Calcular distância
-                    if (state.positions.length > 0) {
-                        const lastPos = state.positions[state.positions.length - 1];
-                        const dist = haversine(lastPos.lat, lastPos.lng, latitude, longitude);
-                        // Só adicionar se moveu mais de 3m (filtra GPS noise)
-                        if (dist < 0.003) return;
-                        state.totalDistance += dist;
-                    }
-
-                    state.positions.push({ lat: latitude, lng: longitude, time: Date.now() });
-                    state.currentPos = newPos;
-
-                    // Atualizar mapa
-                    updateMyPosition(newPos);
-
-                    // Atualizar stats
-                    const speedKmh = speed ? (speed * 3.6) : 0;
-                    document.getElementById('stat-speed').textContent = speedKmh.toFixed(1);
-                    document.getElementById('stat-distance').textContent = state.totalDistance.toFixed(2);
-
-                    // Média
-                    if (state.startTime) {
-                        const elapsed = (Date.now() - state.startTime) / 3600000; // horas
-                        const avg = elapsed > 0 ? (state.totalDistance / elapsed) : 0;
-                        document.getElementById('stat-avg').textContent = avg.toFixed(1);
-                    }
-
-                    // Broadcast para peers
-                    broadcastPosition(latitude, longitude);
-
-                    showLoading(false);
-                },
-                (err) => {
-                    showLoading(false);
-                    showToast('Erro ao acessar GPS: ' + err.message);
-                    console.error('Geo error:', err);
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 2000,
-                    timeout: 10000,
-                }
-            );
-
-            state.isPedaling = true;
-            state.startTime = Date.now();
-            state.totalDistance = 0;
-            state.positions = [];
-
-            // Timer
-            state.timerInterval = setInterval(updateTimer, 1000);
-
-            // UI Updates
-            const btn = document.getElementById('btn-pedal');
-            btn.textContent = 'PARAR PEDAL';
-            btn.className = 'btn-pedal stop';
-            document.getElementById('stats-bar').classList.add('visible');
-            document.getElementById('status-text').textContent = 'Pedalando';
-            document.getElementById('status-dot').classList.add('active');
-
-            showToast('🚴 Modo Pedal Ativado! Boa pedalada!');
+                state.wakeLock = await navigator.wakeLock.request('screen');
+                state.wakeLock.addEventListener('release', () => {
+                    if (state.isPedaling) requestWakeLock();
+                });
+            } catch (e) {}
         }
+    }
 
-        function stopPedal() {
-            // Parar GPS
-            if (state.watchId !== null) {
-                navigator.geolocation.clearWatch(state.watchId);
-                state.watchId = null;
-            }
-
-            // Liberar Wake Lock
-            releaseWakeLock();
-
-            // Parar timer
-            if (state.timerInterval) {
-                clearInterval(state.timerInterval);
-                state.timerInterval = null;
-            }
-
-            state.isPedaling = false;
-
-            // Notificar peers
-            broadcastStop();
-
-            // UI Updates
-            const btn = document.getElementById('btn-pedal');
-            btn.textContent = 'MODO PEDAL';
-            btn.className = 'btn-pedal start';
-            document.getElementById('status-text').textContent = 'Finalizado';
-            document.getElementById('status-dot').classList.remove('active');
-
-            showToast('Pedalada finalizada! ' + state.totalDistance.toFixed(2) + ' km percorridos');
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && state.isPedaling) {
+            requestWakeLock();
         }
+    });
 
-        // --- Atualizar minha posição no mapa ---
-        function updateMyPosition(latlng) {
-            if (!myMarker) {
-                myMarker = L.marker(latlng, {
-                    icon: L.divIcon({
-                        className: 'cyclist-marker',
-                        html: '<div class="marker-dot"></div>',
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10],
-                    }),
-                }).addTo(map);
-
-                myPolyline = L.polyline([], {
-                    color: '#00e676',
-                    weight: 4,
-                    opacity: 0.9,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                }).addTo(map);
-            }
-
-            myMarker.setLatLng(latlng);
-            myPolyline.addLatLng(latlng);
-            map.panTo(latlng, { animate: true, duration: 0.5 });
+    function releaseWakeLock() {
+        if (state.wakeLock) {
+            state.wakeLock.release();
+            state.wakeLock = null;
         }
+    }
 
-        // --- Wake Lock (manter tela ativa) ---
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    state.wakeLock = await navigator.wakeLock.request('screen');
-                    state.wakeLock.addEventListener('release', () => {
-                        // Tentar readquirir se ainda está pedalando
-                        if (state.isPedaling) {
-                            requestWakeLock();
-                        }
-                    });
-                    console.log('Wake Lock ativo');
-                } catch (err) {
-                    console.warn('Wake Lock falhou:', err);
-                }
-            }
+    // --- Timer ---
+    function updateTimer() {
+        if (!state.startTime) return;
+        const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+        const min = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const sec = (elapsed % 60).toString().padStart(2, '0');
+        const hrs = Math.floor(elapsed / 3600);
+        document.getElementById('stat-time').textContent = hrs > 0
+            ? `${hrs}:${min.slice(-2)}:${sec}`
+            : `${min}:${sec}`;
+    }
+
+    // --- Haversine ---
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 +
+                  Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                  Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // --- Centralizar ---
+    function centerMap() {
+        if (state.currentPos) {
+            map.setView(state.currentPos, 16, { animate: true });
+        } else {
+            showToast('Localização não disponível');
         }
+    }
 
-        // Readquirir Wake Lock quando a página volta a ficar visível
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && state.isPedaling) {
-                requestWakeLock();
-            }
-        });
-
-        function releaseWakeLock() {
-            if (state.wakeLock) {
-                state.wakeLock.release();
-                state.wakeLock = null;
-            }
-        }
-
-        // --- Timer ---
-        function updateTimer() {
-            if (!state.startTime) return;
-            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-            const min = Math.floor(elapsed / 60).toString().padStart(2, '0');
-            const sec = (elapsed % 60).toString().padStart(2, '0');
-            const hrs = Math.floor(elapsed / 3600);
-            if (hrs > 0) {
-                document.getElementById('stat-time').textContent =
-                    `${hrs}:${min.slice(-2)}:${sec}`;
-            } else {
-                document.getElementById('stat-time').textContent = `${min}:${sec}`;
-            }
-        }
-
-        // --- Haversine (distância em km) ---
-        function haversine(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // --- Centralizar mapa ---
-        function centerMap() {
-            if (state.currentPos) {
-                map.setView(state.currentPos, 16, { animate: true });
-            } else {
-                showToast('Localização não disponível');
-            }
-        }
-
-        // --- Modal Compartilhar ---
-        function openShareModal() {
-            document.getElementById('share-modal').classList.add('visible');
-        }
-
-        function closeShareModal() {
-            document.getElementById('share-modal').classList.remove('visible');
-        }
-
-        function copyCode() {
-            const code = state.peerId || '';
-            navigator.clipboard.writeText(code.toUpperCase()).then(() => {
-                showToast('Código copiado!');
-            }).catch(() => {
-                // Fallback
-                const el = document.createElement('textarea');
-                el.value = code.toUpperCase();
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                showToast('Código copiado!');
+    // --- Compartilhar ---
+    function shareApp() {
+        const url = 'https://bfbra.github.io/Pedalada/';
+        if (navigator.share) {
+            navigator.share({
+                title: 'Pedalada dos Estados',
+                text: '🚴 Acompanhe a pedalada em tempo real!',
+                url: url,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('Link copiado!');
             });
         }
+    }
 
-        function nativeShare() {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Pedalada dos Estados',
-                    text: `Acompanhe minha pedalada! Código: ${(state.peerId || '').toUpperCase()}`,
-                    url: window.location.href,
-                }).catch(() => {});
-            } else {
-                copyCode();
-            }
-        }
+    // --- Toast ---
+    function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 3500);
+    }
 
-        // --- Toast ---
-        function showToast(msg) {
-            const el = document.getElementById('toast');
-            el.textContent = msg;
-            el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 3000);
-        }
+    // --- Loading ---
+    function showLoading(show) {
+        document.getElementById('loading').classList.toggle('visible', show);
+    }
 
-        // --- Loading ---
-        function showLoading(show) {
-            document.getElementById('loading').classList.toggle('visible', show);
-        }
+    // --- Limpar ao sair da página ---
+    window.addEventListener('beforeunload', () => {
+        if (state.isPedaling) removeMyself();
+    });
 
-        // Fechar modal ao clicar fora
-        document.getElementById('share-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeShareModal();
-        });
-
-        // Permitir input uppercase
-        document.getElementById('join-code-input').addEventListener('input', (e) => {
-            e.target.value = e.target.value.toUpperCase();
-        });
-
-        // Enter para conectar
-        document.getElementById('join-code-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') joinRider();
-        });
-
-        // --- Service Worker para funcionar em background ---
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {
-                // SW opcional - não precisa para funcionar
-            });
-        }
+    // --- Service Worker ---
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
     </script>
 </body>
 </html>
