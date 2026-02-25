@@ -145,10 +145,32 @@
 
         .header-logo {
             font-family: 'Orbitron', sans-serif;
-            font-size: 14px;
+            font-size: 11px;
             font-weight: 700;
             color: var(--accent);
             letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-apoio {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+        }
+
+        .header-apoio span {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-apoio img {
+            height: 30px;
+            border-radius: 4px;
         }
 
         .header-status {
@@ -635,7 +657,11 @@
 
     <!-- ========= HEADER ========= -->
     <header id="app-header" style="display:none;">
-        <div class="header-logo"><img src="logo.png" alt="Logo" style="height:32px;border-radius:6px;vertical-align:middle;margin-right:6px;">PEDALADA</div>
+        <div class="header-logo"><img src="logo.png" alt="Logo" style="height:32px;border-radius:6px;">PEDALADA DOS ESTADOS</div>
+        <div class="header-apoio">
+            <span>Apoio</span>
+            <img src="apoio.png" alt="CONSEG e Lions Club">
+        </div>
         <div class="header-status">
             <span id="status-text">Aguardando</span>
             <div class="status-dot" id="status-dot"></div>
