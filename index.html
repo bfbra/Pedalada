@@ -20,6 +20,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="logo.png">
+    <link rel="manifest" href="manifest.json">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap');
@@ -534,7 +535,7 @@
     <!-- PAINEL CICLISTAS -->
     <div class="riders-panel" id="riders-panel">
         <div class="riders-card">
-            <div class="riders-title">🚴 Ciclistas Pedalando</div>
+            <div class="riders-title">Ciclistas Pedalando</div>
             <div id="riders-list"></div>
         </div>
     </div>
@@ -556,7 +557,7 @@
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="stat-avg">0.0</div>
-                <div class="stat-label">Média</div>
+                <div class="stat-label">Media</div>
             </div>
         </div>
         <div class="action-row">
@@ -570,7 +571,7 @@
     <div class="modal-overlay" id="name-modal">
         <div class="modal-box">
             <h2>Qual seu nome?</h2>
-            <p>Os outros ciclistas verão seu nome no mapa.</p>
+            <p>Os outros ciclistas verao seu nome no mapa.</p>
             <input type="text" id="rider-name-input" placeholder="Ex: Bernardo" maxlength="20" autocomplete="off">
             <button onclick="confirmName()">CONFIRMAR</button>
         </div>
@@ -586,7 +587,7 @@
 
     <script>
     // ============================================================
-    //  PEDALADA DOS ESTADOS - Firebase Realtime
+    //  PEDALADA DOS ESTADOS - v2 (Real-time otimizado)
     // ============================================================
 
     // --- Firebase Config ---
@@ -611,22 +612,26 @@
         wakeLock: null,
         startTime: null,
         totalDistance: 0,
-        positions: [],
+        lastPublishedPos: null,
         currentPos: null,
         timerInterval: null,
         riderId: null,
         riderName: '',
-        otherRiders: {},  // { riderId: { name, marker, polyline, color, positions } }
+        otherRiders: {},
+        cleanupInterval: null,
+        publishErrors: 0,
     };
 
     const RIDER_COLORS = ['#42a5f5','#ff7043','#ab47bc','#ffca28','#26c6da','#ec407a','#66bb6a','#ef5350'];
     let colorIndex = 0;
     let map, myMarker, myPolyline;
 
-    // Gerar ID único para este ciclista
+    // ID unico para esta sessao
     state.riderId = 'rider_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
-    // --- Entrar no App ---
+    // ============================================================
+    //  ENTRAR NO APP
+    // ============================================================
     function enterApp() {
         document.getElementById('splash-screen').classList.add('hidden');
         setTimeout(() => {
@@ -635,11 +640,16 @@
             document.getElementById('map-container').style.display = 'block';
             document.getElementById('control-panel').style.display = 'block';
             initMap();
+            cleanupStaleFirebaseData();
             listenForRiders();
+            // Checar riders inativos a cada 15s
+            state.cleanupInterval = setInterval(cleanupStaleLocalRiders, 15000);
         }, 600);
     }
 
-    // --- Mapa ---
+    // ============================================================
+    //  MAPA
+    // ============================================================
     function initMap() {
         map = L.map('map', {
             zoomControl: false,
@@ -657,7 +667,7 @@
                     map.setView([latitude, longitude], 15);
                     state.currentPos = [latitude, longitude];
                 },
-                () => showToast('Permita acesso à localização'),
+                () => showToast('Permita acesso a localizacao'),
                 { enableHighAccuracy: true }
             );
         }
@@ -665,15 +675,20 @@
 
     // ============================================================
     //  FIREBASE: Escutar ciclistas em tempo real
+    //
+    //  Estrutura no banco:
+    //    riders/{id}  -> { name, lat, lng, speed, updatedAt }
+    //    trails/{id}  -> { pushKey: { lat, lng, time } }
+    //
+    //  riders/ = leve, so posicao atual (atualiza a cada GPS)
+    //  trails/ = historico incremental (push de cada ponto)
     // ============================================================
     function listenForRiders() {
         const ridersRef = db.ref('riders');
 
-        // Quando um ciclista é adicionado ou atualizado
         ridersRef.on('child_added', (snap) => handleRiderUpdate(snap));
         ridersRef.on('child_changed', (snap) => handleRiderUpdate(snap));
 
-        // Quando um ciclista sai
         ridersRef.on('child_removed', (snap) => {
             const id = snap.key;
             if (id === state.riderId) return;
@@ -683,52 +698,72 @@
 
     function handleRiderUpdate(snap) {
         const id = snap.key;
-        if (id === state.riderId) return; // Ignorar a si mesmo
+        if (id === state.riderId) return;
 
         const data = snap.val();
-        if (!data || !data.positions || data.positions.length === 0) return;
+        if (!data || data.lat == null || data.lng == null) return;
 
-        const positions = data.positions;
-        const lastPos = positions[positions.length - 1];
+        // Ignorar riders inativos (> 2 min sem update)
+        if (data.updatedAt && Date.now() - data.updatedAt > 120000) return;
+
+        const latlng = [data.lat, data.lng];
 
         if (!state.otherRiders[id]) {
-            // Novo ciclista — criar marcador e rota
+            // Novo ciclista — criar marcador e polyline
             const color = RIDER_COLORS[colorIndex++ % RIDER_COLORS.length];
-            const latlngs = positions.map(p => [p.lat, p.lng]);
 
-            const polyline = L.polyline(latlngs, {
-                color: color,
-                weight: 4,
-                opacity: 0.8,
-            }).addTo(map);
-
-            const marker = L.marker([lastPos.lat, lastPos.lng], {
+            const marker = L.marker(latlng, {
                 icon: L.divIcon({
                     className: 'cyclist-marker',
-                    html: `<div class="marker-dot other" style="background:${color};">
-                               <div class="marker-label">${data.name || 'Ciclista'}</div>
-                           </div>`,
+                    html: '<div class="marker-dot other" style="background:' + color + ';">'
+                        + '<div class="marker-label">' + (data.name || 'Ciclista') + '</div>'
+                        + '</div>',
                     iconSize: [20, 20],
                     iconAnchor: [10, 10],
                 }),
             }).addTo(map);
 
+            const polyline = L.polyline([], {
+                color: color,
+                weight: 4,
+                opacity: 0.8,
+            }).addTo(map);
+
             state.otherRiders[id] = {
                 name: data.name || 'Ciclista',
-                marker, polyline, color, positions,
+                marker: marker,
+                polyline: polyline,
+                color: color,
+                lastUpdate: Date.now(),
             };
 
-            showToast('🚴 ' + (data.name || 'Ciclista') + ' entrou na pedalada!');
+            // Escutar trail incremental desse ciclista
+            listenForTrail(id);
+
+            showToast((data.name || 'Ciclista') + ' entrou na pedalada!');
         } else {
-            // Atualizar ciclista existente
+            // Atualizar posicao do marcador
             const rider = state.otherRiders[id];
-            const latlngs = positions.map(p => [p.lat, p.lng]);
-            rider.polyline.setLatLngs(latlngs);
-            rider.marker.setLatLng([lastPos.lat, lastPos.lng]);
-            rider.positions = positions;
+            rider.marker.setLatLng(latlng);
+            rider.lastUpdate = Date.now();
+            rider.name = data.name || rider.name;
         }
 
         updateRidersPanel();
+    }
+
+    function listenForTrail(riderId) {
+        db.ref('trails/' + riderId)
+            .orderByChild('time')
+            .on('child_added', (snap) => {
+                const point = snap.val();
+                if (!point || point.lat == null || point.lng == null) return;
+
+                const rider = state.otherRiders[riderId];
+                if (rider) {
+                    rider.polyline.addLatLng([point.lat, point.lng]);
+                }
+            });
     }
 
     function removeRider(id) {
@@ -737,17 +772,48 @@
             showToast(rider.name + ' saiu da pedalada');
             map.removeLayer(rider.marker);
             map.removeLayer(rider.polyline);
+            // Parar de escutar trail desse rider
+            db.ref('trails/' + id).off();
             delete state.otherRiders[id];
             updateRidersPanel();
         }
     }
 
-    function updateRidersPanel() {
-        const panel = document.getElementById('riders-panel');
-        const list = document.getElementById('riders-list');
-        const ids = Object.keys(state.otherRiders);
+    // ============================================================
+    //  CLEANUP: Remover riders inativos
+    // ============================================================
+    function cleanupStaleLocalRiders() {
+        var now = Date.now();
+        Object.keys(state.otherRiders).forEach(function(id) {
+            if (now - state.otherRiders[id].lastUpdate > 120000) {
+                removeRider(id);
+            }
+        });
+    }
 
-        const totalRiders = ids.length + (state.isPedaling ? 1 : 0);
+    function cleanupStaleFirebaseData() {
+        db.ref('riders').once('value', function(snap) {
+            var data = snap.val();
+            if (!data) return;
+            var now = Date.now();
+            Object.keys(data).forEach(function(id) {
+                // Limpar riders com mais de 5 min sem update
+                if (data[id].updatedAt && now - data[id].updatedAt > 300000) {
+                    db.ref('riders/' + id).remove();
+                    db.ref('trails/' + id).remove();
+                }
+            });
+        });
+    }
+
+    // ============================================================
+    //  PAINEL DE CICLISTAS
+    // ============================================================
+    function updateRidersPanel() {
+        var panel = document.getElementById('riders-panel');
+        var list = document.getElementById('riders-list');
+        var ids = Object.keys(state.otherRiders);
+        var totalRiders = ids.length + (state.isPedaling ? 1 : 0);
 
         if (totalRiders === 0) {
             panel.classList.remove('visible');
@@ -755,41 +821,60 @@
         }
 
         panel.classList.add('visible');
-        let html = '';
+        var html = '';
 
         if (state.isPedaling) {
-            html += `<div class="rider-item">
-                <div class="rider-color" style="background:#00e676"></div>
-                <span>${state.riderName || 'Você'} (você)</span>
-            </div>`;
+            html += '<div class="rider-item">'
+                + '<div class="rider-color" style="background:#00e676"></div>'
+                + '<span>' + (state.riderName || 'Voce') + ' (voce)</span>'
+                + '</div>';
         }
 
-        html += ids.map(id => {
-            const r = state.otherRiders[id];
-            return `<div class="rider-item">
-                <div class="rider-color" style="background:${r.color}"></div>
-                <span>${r.name}</span>
-            </div>`;
-        }).join('');
+        ids.forEach(function(id) {
+            var r = state.otherRiders[id];
+            html += '<div class="rider-item">'
+                + '<div class="rider-color" style="background:' + r.color + '"></div>'
+                + '<span>' + r.name + '</span>'
+                + '</div>';
+        });
 
         list.innerHTML = html;
     }
 
     // ============================================================
-    //  FIREBASE: Publicar minha posição
+    //  FIREBASE: Publicar minha posicao
+    //
+    //  riders/{id} -> posicao atual (leve, ~100 bytes)
+    //  trails/{id} -> push incremental de cada ponto
     // ============================================================
-    function publishPosition(lat, lng) {
-        state.positions.push({ lat, lng, time: Date.now() });
-
-        db.ref('riders/' + state.riderId).set({
+    function publishPosition(lat, lng, speed) {
+        // Update leve: so posicao atual
+        db.ref('riders/' + state.riderId).update({
             name: state.riderName,
-            positions: state.positions,
+            lat: lat,
+            lng: lng,
+            speed: speed || 0,
             updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        }).then(function() {
+            state.publishErrors = 0;
+        }).catch(function(err) {
+            state.publishErrors++;
+            if (state.publishErrors <= 3) {
+                showToast('Erro ao compartilhar. Verifique sua conexao.');
+            }
         });
+
+        // Push incremental no trail (cada ponto individualmente)
+        db.ref('trails/' + state.riderId).push({
+            lat: lat,
+            lng: lng,
+            time: Date.now(),
+        }).catch(function() {});
     }
 
     function removeMyself() {
-        db.ref('riders/' + state.riderId).remove();
+        db.ref('riders/' + state.riderId).remove().catch(function() {});
+        db.ref('trails/' + state.riderId).remove().catch(function() {});
     }
 
     // ============================================================
@@ -799,27 +884,26 @@
         if (state.isPedaling) {
             stopPedal();
         } else {
-            // Pedir nome antes de começar
             document.getElementById('name-modal').classList.add('visible');
             document.getElementById('rider-name-input').focus();
         }
     }
 
     function confirmName() {
-        const input = document.getElementById('rider-name-input');
+        var input = document.getElementById('rider-name-input');
         state.riderName = input.value.trim() || 'Ciclista';
         document.getElementById('name-modal').classList.remove('visible');
         startPedal();
     }
 
     // Enter no campo de nome
-    document.getElementById('rider-name-input').addEventListener('keydown', (e) => {
+    document.getElementById('rider-name-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') confirmName();
     });
 
     async function startPedal() {
         if (!navigator.geolocation) {
-            showToast('Geolocalização não suportada');
+            showToast('Geolocalizacao nao suportada');
             return;
         }
 
@@ -829,49 +913,64 @@
         try { await requestWakeLock(); } catch (e) {}
 
         // Reset
-        state.positions = [];
+        state.lastPublishedPos = null;
         state.totalDistance = 0;
         state.startTime = Date.now();
+        state.publishErrors = 0;
 
-        // Configurar limpeza automática ao desconectar
+        // Limpar dados antigos caso o ID existia
+        await db.ref('trails/' + state.riderId).remove().catch(function() {});
+
+        // Configurar limpeza automatica ao desconectar
         db.ref('riders/' + state.riderId).onDisconnect().remove();
+        db.ref('trails/' + state.riderId).onDisconnect().remove();
 
-        // GPS
+        // GPS Watch
         state.watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const { latitude, longitude, speed, accuracy } = pos.coords;
+            function(pos) {
+                var latitude = pos.coords.latitude;
+                var longitude = pos.coords.longitude;
+                var speed = pos.coords.speed;
+                var accuracy = pos.coords.accuracy;
+
                 if (accuracy > 100) return;
 
-                const newPos = [latitude, longitude];
+                var newPos = [latitude, longitude];
 
-                // Distância
-                if (state.positions.length > 0) {
-                    const last = state.positions[state.positions.length - 1];
-                    const dist = haversine(last.lat, last.lng, latitude, longitude);
-                    if (dist < 0.003) return; // Filtrar GPS noise (< 3m)
+                // Calcular distancia
+                if (state.lastPublishedPos) {
+                    var dist = haversine(
+                        state.lastPublishedPos.lat,
+                        state.lastPublishedPos.lng,
+                        latitude, longitude
+                    );
+                    if (dist < 0.003) return; // Filtrar noise GPS (< 3m)
                     state.totalDistance += dist;
                 }
 
                 state.currentPos = newPos;
+                state.lastPublishedPos = { lat: latitude, lng: longitude };
+
+                // Atualizar marcador e polyline local
                 updateMyPosition(newPos);
 
                 // Stats
-                const speedKmh = speed ? (speed * 3.6) : 0;
+                var speedKmh = speed ? (speed * 3.6) : 0;
                 document.getElementById('stat-speed').textContent = speedKmh.toFixed(1);
                 document.getElementById('stat-distance').textContent = state.totalDistance.toFixed(2);
 
                 if (state.startTime) {
-                    const hrs = (Date.now() - state.startTime) / 3600000;
-                    const avg = hrs > 0 ? (state.totalDistance / hrs) : 0;
+                    var hrs = (Date.now() - state.startTime) / 3600000;
+                    var avg = hrs > 0 ? (state.totalDistance / hrs) : 0;
                     document.getElementById('stat-avg').textContent = avg.toFixed(1);
                 }
 
-                // Publicar no Firebase
-                publishPosition(latitude, longitude);
+                // Publicar no Firebase (leve + trail incremental)
+                publishPosition(latitude, longitude, speedKmh);
 
                 showLoading(false);
             },
-            (err) => {
+            function(err) {
                 showLoading(false);
                 showToast('Erro GPS: ' + err.message);
             },
@@ -882,7 +981,7 @@
         state.timerInterval = setInterval(updateTimer, 1000);
 
         // UI
-        const btn = document.getElementById('btn-pedal');
+        var btn = document.getElementById('btn-pedal');
         btn.textContent = 'PARAR PEDAL';
         btn.className = 'btn-pedal stop';
         document.getElementById('stats-bar').classList.add('visible');
@@ -890,7 +989,7 @@
         document.getElementById('status-dot').classList.add('active');
 
         updateRidersPanel();
-        showToast('🚴 Modo Pedal Ativado! Todos podem te ver no mapa!');
+        showToast('Modo Pedal Ativado! Todos podem te ver no mapa!');
     }
 
     function stopPedal() {
@@ -912,7 +1011,7 @@
         removeMyself();
 
         // UI
-        const btn = document.getElementById('btn-pedal');
+        var btn = document.getElementById('btn-pedal');
         btn.textContent = 'MODO PEDAL';
         btn.className = 'btn-pedal start';
         document.getElementById('status-text').textContent = 'Finalizado';
@@ -922,15 +1021,15 @@
         showToast('Pedalada finalizada! ' + state.totalDistance.toFixed(2) + ' km percorridos');
     }
 
-    // --- Atualizar posição no mapa ---
+    // --- Atualizar posicao no mapa ---
     function updateMyPosition(latlng) {
         if (!myMarker) {
             myMarker = L.marker(latlng, {
                 icon: L.divIcon({
                     className: 'cyclist-marker',
-                    html: `<div class="marker-dot">
-                               <div class="marker-label">${state.riderName} (você)</div>
-                           </div>`,
+                    html: '<div class="marker-dot">'
+                        + '<div class="marker-label">' + state.riderName + ' (voce)</div>'
+                        + '</div>',
                     iconSize: [20, 20],
                     iconAnchor: [10, 10],
                 }),
@@ -955,16 +1054,20 @@
         if ('wakeLock' in navigator) {
             try {
                 state.wakeLock = await navigator.wakeLock.request('screen');
-                state.wakeLock.addEventListener('release', () => {
+                state.wakeLock.addEventListener('release', function() {
                     if (state.isPedaling) requestWakeLock();
                 });
             } catch (e) {}
         }
     }
 
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && state.isPedaling) {
             requestWakeLock();
+            // Re-publicar posicao ao voltar ao foreground
+            if (state.lastPublishedPos) {
+                publishPosition(state.lastPublishedPos.lat, state.lastPublishedPos.lng, 0);
+            }
         }
     });
 
@@ -978,23 +1081,23 @@
     // --- Timer ---
     function updateTimer() {
         if (!state.startTime) return;
-        const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-        const min = Math.floor(elapsed / 60).toString().padStart(2, '0');
-        const sec = (elapsed % 60).toString().padStart(2, '0');
-        const hrs = Math.floor(elapsed / 3600);
+        var elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+        var min = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        var sec = (elapsed % 60).toString().padStart(2, '0');
+        var hrs = Math.floor(elapsed / 3600);
         document.getElementById('stat-time').textContent = hrs > 0
-            ? `${hrs}:${min.slice(-2)}:${sec}`
-            : `${min}:${sec}`;
+            ? hrs + ':' + min.slice(-2) + ':' + sec
+            : min + ':' + sec;
     }
 
     // --- Haversine ---
     function haversine(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2)**2 +
-                  Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
-                  Math.sin(dLon/2)**2;
+        var R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
@@ -1003,21 +1106,21 @@
         if (state.currentPos) {
             map.setView(state.currentPos, 16, { animate: true });
         } else {
-            showToast('Localização não disponível');
+            showToast('Localizacao nao disponivel');
         }
     }
 
     // --- Compartilhar ---
     function shareApp() {
-        const url = 'https://bfbra.github.io/Pedalada/';
+        var url = 'https://bfbra.github.io/Pedalada/';
         if (navigator.share) {
             navigator.share({
                 title: 'Pedalada dos Estados',
-                text: '🚴 Acompanhe a pedalada em tempo real!',
+                text: 'Acompanhe a pedalada em tempo real!',
                 url: url,
-            }).catch(() => {});
+            }).catch(function() {});
         } else {
-            navigator.clipboard.writeText(url).then(() => {
+            navigator.clipboard.writeText(url).then(function() {
                 showToast('Link copiado!');
             });
         }
@@ -1025,10 +1128,10 @@
 
     // --- Toast ---
     function showToast(msg) {
-        const el = document.getElementById('toast');
+        var el = document.getElementById('toast');
         el.textContent = msg;
         el.classList.add('show');
-        setTimeout(() => el.classList.remove('show'), 3500);
+        setTimeout(function() { el.classList.remove('show'); }, 3500);
     }
 
     // --- Loading ---
@@ -1036,14 +1139,19 @@
         document.getElementById('loading').classList.toggle('visible', show);
     }
 
-    // --- Limpar ao sair da página ---
-    window.addEventListener('beforeunload', () => {
+    // --- Limpar ao sair da pagina ---
+    window.addEventListener('beforeunload', function() {
+        if (state.isPedaling) removeMyself();
+    });
+
+    // Fallback: pagehide para mobile (beforeunload nem sempre dispara)
+    window.addEventListener('pagehide', function() {
         if (state.isPedaling) removeMyself();
     });
 
     // --- Service Worker ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.register('sw.js').catch(function() {});
     }
     </script>
 </body>

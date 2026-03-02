@@ -1,0 +1,25 @@
+{
+    "name": "Pedalada dos Estados",
+    "short_name": "Pedalada",
+    "description": "Acompanhe ciclistas pedalando em tempo real",
+    "start_url": "/Pedalada/",
+    "scope": "/Pedalada/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0d1b2a",
+    "theme_color": "#0d1b2a",
+    "icons": [
+        {
+            "src": "logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "splash-logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}
